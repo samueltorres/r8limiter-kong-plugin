@@ -5,7 +5,25 @@ services:
     url: https://example.com
     plugins:
       - name: key-auth
+      - name: r8limiter
+        config:
+          server:
+            host: localhost
+            port: 8082
+            timeout: 500
+          domain: kong
+          descriptor:
+            jwt_claims:
+              - claim: client_uid
+                key: client_id
+              - claim: client_tenantId
+                key: tenant_id
+            headers:
+              - header: ff-country
+                key: country
+            ip_address: true
     routes:
       - name: my-route
         paths:
           - /
+    

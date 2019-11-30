@@ -1,11 +1,115 @@
+local typedefs = require "kong.db.schema.typedefs"
+
 return {
-    no_consumer = false, -- this plugin is available on APIs as well as on Consumers,
-    fields = {
-      -- Describe your plugin's configuration's schema here.
-      
+  name = "r8limiter",
+  fields = {
+    {
+      consumer = typedefs.no_consumer
+    }, 
+    {
+      run_on = typedefs.run_on_first
     },
-    self_check = function(schema, plugin_t, dao, is_updating)
-      -- perform any custom verification
-      return true
-    end
+    {
+      protocols = typedefs.protocols_http
+    }, 
+    {
+      config = {
+        type = "record",
+        fields = {
+          {
+            descriptor = {
+              type = "record",
+              fields = {
+                {
+                  jwt_claims = {
+                    type = "array",
+                    elements = {
+                      type = "record",
+                      fields = {
+                        {
+                          claim = {
+                            type = "string",
+                            required = true
+                          }
+                        },
+                        {
+                          key = {
+                            type = "string",
+                            required = false
+                          }
+                        }
+                      }
+                    }
+                  }
+                }, 
+                {
+                  headers = {
+                    type = "array",
+                    elements = {
+                      type = "record",
+                      fields = {
+                        {
+                          header = {
+                            type = "string",
+                            required = true
+                          }
+                        },
+                        {
+                          key = {
+                            type = "string",
+                            required = false
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  ip_address = {
+                    type = "boolean",
+                    default = false
+                  }
+                }
+              }
+            }
+          },
+          {
+            domain = {
+              type = "string",
+              required = false,
+              default = "kong"
+            }
+          },
+          {
+            server = {
+              type = "record",
+              fields = {
+                {
+                  host = typedefs.host {
+                    default = "localhost",
+                  }
+                },
+                {
+                  port = {
+                    type = "number",
+                    default = 8082,
+                    between = {
+                      0,
+                      65534
+                    },
+                  },
+                },  
+                {
+                  timeout = {
+                    type = "number",
+                    default = 100
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
+}

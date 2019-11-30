@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  kong:
+    image: kong
+    network_mode: host
+    ports:
+      - "8000:8000/tcp"
+      - "8001:8001/tcp"
+      - "8443:8443/tcp"
+      - "8444:8444/tcp"
+    volumes:
+      - ./kong:/usr/local/custom/kong
+      - ./config:/tmp/config
+    environment:
+      - KONG_PLUGINS=r8limiter
+      - KONG_DATABASE=off
+      - KONG_DECLARATIVE_CONFIG=/tmp/config/kong.yaml
+      - KONG_LUA_PACKAGE_PATH=/usr/local/custom/?.lua;;
+      - KONG_ADMIN_ACCESS_LOG='/dev/stdout'
+      - KONG_ADMIN_ERROR_LOG='/dev/stderr'
+      - KONG_PROXY_ACCESS_LOG='/dev/stdout'
+      - KONG_PROXY_ERROR_LOG='/dev/stderr'
