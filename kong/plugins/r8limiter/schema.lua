@@ -17,57 +17,60 @@ return {
         type = "record",
         fields = {
           {
-            descriptor = {
-              type = "record",
-              fields = {
-                {
-                  jwt_claims = {
-                    type = "array",
-                    elements = {
-                      type = "record",
-                      fields = {
-                        {
-                          claim = {
-                            type = "string",
-                            required = true
-                          }
-                        },
-                        {
-                          key = {
-                            type = "string",
-                            required = false
-                          }
-                        }
-                      }
-                    }
-                  }
-                }, 
-                {
-                  headers = {
-                    type = "array",
-                    elements = {
-                      type = "record",
-                      fields = {
-                        {
-                          header = {
-                            type = "string",
-                            required = true
-                          }
-                        },
-                        {
-                          key = {
-                            type = "string",
-                            required = false
+            descriptors = {
+              type = "array",
+              elements = {
+                type = "record",
+                fields = {
+                  {
+                    jwt_claims = {
+                      type = "array",
+                      elements = {
+                        type = "record",
+                        fields = {
+                          {
+                            claim = {
+                              type = "string",
+                              required = true
+                            }
+                          },
+                          {
+                            key = {
+                              type = "string",
+                              required = false
+                            }
                           }
                         }
                       }
                     }
-                  }
-                },
-                {
-                  ip_address = {
-                    type = "boolean",
-                    default = false
+                  }, 
+                  {
+                    headers = {
+                      type = "array",
+                      elements = {
+                        type = "record",
+                        fields = {
+                          {
+                            header = {
+                              type = "string",
+                              required = true
+                            }
+                          },
+                          {
+                            key = {
+                              type = "string",
+                              required = false
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    ip_address = {
+                      type = "boolean",
+                      default = false
+                    }
                   }
                 }
               }

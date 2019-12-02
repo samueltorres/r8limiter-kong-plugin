@@ -3,12 +3,20 @@ local cjson = require "cjson.safe"
 local jwtParser = require "kong.plugins.jwt.jwt_parser"
 local r8limiter = require("kong.plugins.base_plugin"):extend()
 
-local time_units_map = {
+local time_units_description = {
     [0] = "unkown",
     [1] = "second",
     [2] = "minute",
     [3] = "hour",
     [4] = "day"
+}
+
+local time_unit_in_seconds = {
+    [0] = 0,
+    [1] = 1,
+    [2] = 60,
+    [3] = 3600,
+    [4] = 86400,
 }
 
 local function retrieve_auth_token()
@@ -39,6 +47,11 @@ local function get_claims_from_jwt(jwt)
     return jwt_table["claims"], err
 end
 
+local function get_ratelimit_reset(unit)
+    local now = os.time()
+    return now - (now % time_unit_in_seconds[unit]) + time_unit_in_seconds[unit]
+end
+
 function r8limiter:new() r8limiter.super.new(self, "r8limiter") end
 
 function r8limiter:access(config)
@@ -46,40 +59,49 @@ function r8limiter:access(config)
 
     local rate_limit_request = {
         domain = config.domain,
-        descriptors = {{entries = {}}}
+        descriptors = {}
     }
 
-    -- handle descriptor from ip address 
-    if config.descriptor.ip_address then
-        local ip_address = kong.client.get_forwarded_ip()
-        table.insert(rate_limit_request.descriptors[1].entries, {key = "ip_address", value = ip_address})
-    end
+    for i, desc in ipairs(config.descriptors) do
+        local d = {entries={}}
 
-    -- handle descriptors from jwt claims
-    local jwt = retrieve_auth_token()
-    if jwt then
-        local claims, err = get_claims_from_jwt(jwt)
-        if not err then
-            for i, c in ipairs(config.descriptor.jwt_claims) do
-                local key = c.key or c.claim
-                local value = claims[c.claim]
+        -- handle descriptor from ip address 
+        if desc.ip_address then
+            local ip_address = kong.client.get_forwarded_ip()
+            table.insert(d.entries, {key = "ip_address", value = ip_address})
+        end
 
-                if value then
-                    table.insert(rate_limit_request.descriptors[1].entries, {key = key, value = value})
+        -- handle descriptors from jwt claims
+        local jwt = retrieve_auth_token()
+        if jwt then
+            local claims, err = get_claims_from_jwt(jwt)
+            if not err and desc.jwt_claims then
+                for i, c in ipairs(desc.jwt_claims) do
+                    local key = c.key or c.claim
+                    local value = claims[c.claim]
+
+                    if value then
+                        table.insert(d.entries, {key = key, value = value})
+                    end
                 end
             end
         end
-    end
+        
+        -- handle http headers
+        local headers = kong.request.get_headers()
+        if desc.headers then
+            for i, c in ipairs(desc.headers) do
+                local key = c.key or c.header
+                local value = headers[c.header]
     
-    -- handle http headers
-    local headers = kong.request.get_headers()
-    for i, c in ipairs(config.descriptor.headers) do
-        local key = c.key or c.header
-        local value = headers[c.header]
-
-        if value then
-            table.insert(rate_limit_request.descriptors[1].entries, {key = key, value = value})
+                if value then
+                    table.insert(d.entries, {key = key, value = value})
+                end
+            end
         end
+
+        table.insert(rate_limit_request.descriptors, d)
+
     end
 
     -- rate limiter service request setup
@@ -114,17 +136,27 @@ function r8limiter:access(config)
     local headers = {}
     if rate_limit_response.statuses[1] then
         
-        local unit = time_units_map[rate_limit_response.statuses[1].current_limit.unit] or "unknown"
-        local limit_remaining = rate_limit_response.statuses[1].limit_remaining or 0
-        
-        headers["X-RateLimit-Limit-Unit"] = unit
-        headers["X-RateLimit-Remaining"] = limit_remaining
-        headers["X-RateLimit-Limit"] = rate_limit_response.statuses[1].current_limit.requests_per_unit
-        
+        local selected_status = rate_limit_response.statuses[1]
+        for i, status in ipairs(rate_limit_response.statuses) do
+            -- if the unit is lower - e.g - minutes vs seconds, seconds should be used
+            if status.current_limit.unit < selected_status.current_limit.unit then
+                selected_status = status
+            elseif status.current_limit.unit == selected_status.current_limit.unit then
+                -- check if theres a status with less requests remaining
+                if status.limit_remaining < selected_status.limit_remaining then
+                    selected_status = status
+                end
+            end
+        end
+
+        headers["X-RateLimit-Limit"] = selected_status.current_limit.requests_per_unit
+        headers["X-RateLimit-Remaining"] = selected_status.limit_remaining or 0
+        headers["X-RateLimit-Reset"] = get_ratelimit_reset(selected_status.current_limit.unit)
+
         kong.ctx.plugin.headers = headers
     end
     
-    if rate_limit_response['overall_code'] == 2 then
+    if rate_limit_response.overall_code == 2 then
         return kong.response.exit(429, {message = "too many requests"})
     end
 
