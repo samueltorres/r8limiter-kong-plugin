@@ -49,7 +49,10 @@ end
 
 local function get_ratelimit_reset(unit)
     local now = os.time()
-    return now - (now % time_unit_in_seconds[unit]) + time_unit_in_seconds[unit]
+    local reset_time = now - (now % time_unit_in_seconds[unit]) + time_unit_in_seconds[unit]
+    local reset_after_seconds = time_unit_in_seconds[unit] - (now % time_unit_in_seconds[unit])
+
+    return reset_time , reset_after_seconds
 end
 
 function r8limiter:new() r8limiter.super.new(self, "r8limiter") end
@@ -143,15 +146,21 @@ function r8limiter:access(config)
                 selected_status = status
             elseif status.current_limit.unit == selected_status.current_limit.unit then
                 -- check if theres a status with less requests remaining
-                if status.limit_remaining < selected_status.limit_remaining then
+                if (status.limit_remaining or 0) < (selected_status.limit_remaining or 0) then
                     selected_status = status
                 end
             end
         end
 
+        local reset, retry_after = get_ratelimit_reset(selected_status.current_limit.unit)
         headers["X-RateLimit-Limit"] = selected_status.current_limit.requests_per_unit
         headers["X-RateLimit-Remaining"] = selected_status.limit_remaining or 0
-        headers["X-RateLimit-Reset"] = get_ratelimit_reset(selected_status.current_limit.unit)
+        headers["X-RateLimit-Reset"] = reset
+
+        if rate_limit_response.overall_code == 2 then
+            kong.log.err("retry-after", retry_after)
+            headers["Retry-After"] = retry_after
+        end
 
         kong.ctx.plugin.headers = headers
     end
