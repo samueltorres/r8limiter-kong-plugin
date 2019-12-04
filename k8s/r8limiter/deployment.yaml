@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: r8limiter-deployment
+  labels:
+    app: r8limiter
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: r8limiter
+  template:
+    metadata:
+      labels:
+        app: r8limiter
+    spec:
+      containers:
+        - name: r8limiter
+          image: localhost:32000/r8limiter:0.2
+          env:
+            - name: R8_REDIS_ADDRESS
+              value: "r8-redis-master:6379"
+            - name: R8_RULES_FILE
+              value: "/etc/config/kong.yaml"
+            - name: R8_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: r8-redis
+                  key: redis-password
+          ports:
+            - containerPort: 8082
+          volumeMounts:
+            - name: rules-volume
+              mountPath: /etc/config
+          imagePullPolicy: Always
+      volumes:
+      - name: rules-volume
+        configMap:
+          name: r8limiter-rules-config

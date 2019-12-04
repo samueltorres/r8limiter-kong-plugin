@@ -2,9 +2,8 @@ _format_version: "1.1"
 
 services:
   - name: my-service
-    url: https://example.com
+    url: https://sbx09-api.fftech.info/v1/
     plugins:
-      - name: key-auth
       - name: r8limiter
         config:
           server:
@@ -18,7 +17,6 @@ services:
                 key: tenant_id
             - ip_address: true
     routes:
-      - name: my-route
+      - name: any-route
         paths:
           - /
-    

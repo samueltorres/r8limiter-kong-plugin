@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: r8limiter-rules-config
+data:
+  kong.yaml: |-
+    domains:
+      - domain: kong
+        rules:
+          - labels:
+              - key: tenant_id
+                value: 10000
+            limit:
+              unit: minute
+              requests: 100
+
+          - labels: 
+              - key: ip_address
+            limit:
+              unit: day
+              requests: 576876

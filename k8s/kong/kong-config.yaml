@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+data:
+  kong.yaml: |-
+    _format_version: "1.1"
+    services:
+      - name: my-service
+        url: https://sbx09-api.fftech.info/v1/
+        plugins:
+          - name: r8limiter
+            config:
+              server:
+                host: service-r8limiter
+                port: 8082
+                timeout: 500
+              domain: kong
+              descriptors:
+                - jwt_claims:
+                  - claim: client_tenantId
+                    key: tenant_id
+                - ip_address: true
+        routes:
+          - name: any-route
+            paths:
+              - /
+    

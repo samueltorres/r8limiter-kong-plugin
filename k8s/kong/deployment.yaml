@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong-dbless
+  labels:
+    app: kong-dbless
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kong-dbless
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: kong-dbless
+    spec:
+      containers:
+        # this servers to restart kong when file changes, please see https://github.com/hbagdi/hupit .
+        - name: hupit
+          image: hbagdi/hupit:v0.1.0
+          command: [ "hupit", "--file", "/kong", "--command", "curl -v http://localhost:8001/config -F 'config=@/kong/kong.yaml'"]
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 8042
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /health
+              port: 8042
+          volumeMounts:
+            - name: kong-config
+              mountPath: /kong
+        - name: kong-dbless
+          image: localhost:32000/kkkong:0.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KONG_DATABASE
+              value: 'off'
+            - name: KONG_LOG_LEVEL
+              value: debug
+            - name: KONG_ADMIN_ACCESS_LOG
+              value: /dev/stdout
+            - name: KONG_PROXY_ERROR_LOG
+              value: /dev/stderr
+            - name: KONG_ADMIN_ERROR_LOG
+              value: /dev/stderr
+            - name: KONG_ADMIN_LISTEN
+              value: '127.0.0.1:8001'
+            - name: KONG_PROXY_LISTEN
+              value: 0.0.0.0:8000,0.0.0.0:8443 ssl
+            - name: KONG_DECLARATIVE_CONFIG
+              value: /kong/kong.yaml
+            - name: KONG_PLUGINS
+              value: r8limiter
+          volumeMounts:
+            - name: kong-config
+              mountPath: /kong
+          ports:
+            - name: data-http
+              containerPort: 8000
+            - name: data-https
+              containerPort: 8443
+          readinessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: kong-config
+          configMap:
+            name: kong-config
