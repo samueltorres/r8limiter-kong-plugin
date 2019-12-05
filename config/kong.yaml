@@ -2,7 +2,7 @@ _format_version: "1.1"
 
 services:
   - name: my-service
-    url: https://sbx09-api.fftech.info/v1/
+    url: https://mockbin.org/request/
     plugins:
       - name: r8limiter
         config:

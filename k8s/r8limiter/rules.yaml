@@ -11,8 +11,8 @@ data:
               - key: tenant_id
                 value: 10000
             limit:
-              unit: minute
-              requests: 100
+              unit: hour
+              requests: 10000
 
           - labels: 
               - key: ip_address

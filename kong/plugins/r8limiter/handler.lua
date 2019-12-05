@@ -20,8 +20,6 @@ local time_unit_in_seconds = {
 }
 
 local function retrieve_auth_token()
-    kong.log.debug("FF-retrieve_token:")
-
     local access_token = kong.request.get_header("authorization")
     if access_token then
         local parts = {}
@@ -62,11 +60,11 @@ function r8limiter:access(config)
 
     local rate_limit_request = {
         domain = config.domain,
-        descriptors = {}
+        descriptors = {nil}
     }
 
     for i, desc in ipairs(config.descriptors) do
-        local d = {entries={}}
+        local d = {entries={nil}}
 
         -- handle descriptor from ip address 
         if desc.ip_address then
@@ -103,8 +101,10 @@ function r8limiter:access(config)
             end
         end
 
-        table.insert(rate_limit_request.descriptors, d)
 
+        if #d.entries > 0 then
+            table.insert(rate_limit_request.descriptors, d)
+        end
     end
 
     -- rate limiter service request setup
@@ -113,6 +113,8 @@ function r8limiter:access(config)
         kong.log.err("could not JSON encode ratelimit request body", err)
         return
     end
+
+    kong.log(req_body)
 
     local httpc = resty_http.new()
     httpc:set_timeout(config.server.timeout)
